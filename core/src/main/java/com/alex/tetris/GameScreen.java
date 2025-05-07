@@ -4,6 +4,7 @@ import static com.alex.tetris.TetrisGame.*;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
@@ -49,6 +50,11 @@ public class GameScreen implements Screen {
     // next piece
     private TetrisPiece nextPiece;
 
+    // Sistema de puntuación
+    private int score = 0;
+    private BitmapFont font;
+    private Preferences prefs;
+    private int highScore = 0;
 
 
     // Piezas y colores
@@ -135,6 +141,11 @@ public class GameScreen implements Screen {
         drawGhostPiece();
         drawCurrentPiece();
         drawNextPiece();
+
+        // draw puntuacion
+        font.draw(batch, "Puntos: " + score, 20, VIRTUAL_HEIGHT);
+        font.draw(batch, "Récord: " + highScore, 20, VIRTUAL_HEIGHT - 25);
+
         batch.end();
     }
 
@@ -495,6 +506,11 @@ public class GameScreen implements Screen {
 
             // Game over si la nueva pieza colisiona inmediatamente
             if (checkCollision(currentPiece)) {
+                if (score > highScore) {
+                    highScore = score;
+                    prefs.putInteger("highScore", highScore);
+                    prefs.flush();
+                }
                 Gdx.app.log("Game", "Game Over!");
                 game.setScreen(new MainMenuScreen(game));
             }
@@ -522,6 +538,8 @@ public class GameScreen implements Screen {
     }
 
     private void checkCompleteLines() {
+        int linesCleared = 0;
+
         for (int row = 0; row < BOARD_ROWS; row++) {
             boolean lineComplete = true;
             for (int col = 0; col < BOARD_COLUMNS; col++) {
@@ -532,14 +550,24 @@ public class GameScreen implements Screen {
             }
 
             if (lineComplete) {
-                // Eliminar la línea y mover todo hacia abajo
                 for (int r = row; r < BOARD_ROWS - 1; r++) {
                     System.arraycopy(board[r + 1], 0, board[r], 0, BOARD_COLUMNS);
                 }
-                // Limpiar la línea superior
                 Arrays.fill(board[BOARD_ROWS - 1], 0);
                 row--;
-                clearLineSound.play(0.8f);
+                linesCleared++;
+            }
+        }
+
+        // 🎯 Aumentar puntuación
+        if (linesCleared > 0) {
+            clearLineSound.play(0.8f);
+            switch (linesCleared) {
+                case 1: score += 100; break;
+                case 2: score += 300; break;
+                case 3: score += 500; break;
+                case 4: score += 800; break; // Tetris
+                default: score += linesCleared * 200;
             }
         }
     }
@@ -662,6 +690,14 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         // Configuración cuando se muestra la pantalla
+
+        // Borrar maxima puntuación
+//        prefs.remove("highScore");
+//        prefs.flush();
+
+        prefs = Gdx.app.getPreferences("tetris_prefs");
+        highScore = prefs.getInteger("highScore", 0); // valor por defecto 0
+
         camera = new OrthographicCamera();
         viewport = new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, camera);
         viewport.apply();
@@ -694,6 +730,9 @@ public class GameScreen implements Screen {
         stage = new Stage(new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT));
         createPauseButton();
         Gdx.input.setInputProcessor(stage);
+
+        font = new BitmapFont(); // Fuente por defecto
+        font.getData().setScale(1.5f);
 
         createPauseMenu();
     }
