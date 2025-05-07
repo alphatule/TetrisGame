@@ -36,6 +36,8 @@ public class TetrisGame extends ApplicationAdapter {
     // Otras variables de texturas
     private Texture cellTexture;
     private Texture[] pieceTextures;
+    private Texture ghostPieceTexture; // Textura semitransparente
+    private TetrisPiece ghostPiece;   // Pieza fantasma
 
     // Piezas y colores
     private static final Color[] PIECE_COLORS = {
@@ -92,6 +94,7 @@ public class TetrisGame extends ApplicationAdapter {
 
     private void initTextures() {
         cellTexture = createCellTexture(CELL_SIZE);
+        ghostPieceTexture = createGhostTexture(CELL_SIZE);
         pieceTextures = new Texture[PIECE_COLORS.length];
         for (int i = 0; i < PIECE_COLORS.length; i++) {
             pieceTextures[i] = createColoredTexture(CELL_SIZE, PIECE_COLORS[i]);
@@ -110,6 +113,7 @@ public class TetrisGame extends ApplicationAdapter {
     }
 
     private void updateGame() {
+        updateGhostPiece();
         dropTimer += Gdx.graphics.getDeltaTime();
         if (dropTimer >= dropInterval) {
             movePieceDown();
@@ -126,6 +130,7 @@ public class TetrisGame extends ApplicationAdapter {
 
         batch.begin();
         drawBoard();
+        drawGhostPiece();
         drawCurrentPiece();
         batch.end();
     }
@@ -217,6 +222,7 @@ public class TetrisGame extends ApplicationAdapter {
                 return;
             }
         }
+        updateGhostPiece();
 
         Gdx.app.log("ROTATION", "Rotation failed - no valid position");
     }
@@ -269,8 +275,57 @@ public class TetrisGame extends ApplicationAdapter {
         }
     }
 
+    private void drawGhostPiece() {
+        if (ghostPiece == null) return;
+
+        float startX = (VIRTUAL_WIDTH - BOARD_COLUMNS * CELL_SIZE) / 2;
+        float startY = (VIRTUAL_HEIGHT - BOARD_ROWS * CELL_SIZE) / 2;
+
+        for (int row = 0; row < ghostPiece.shape.length; row++) {
+            for (int col = 0; col < ghostPiece.shape[row].length; col++) {
+                if (ghostPiece.shape[row][col] != 0) {
+                    int drawX = ghostPiece.x + col;
+                    int drawY = ghostPiece.y + row;
+
+                    if (drawY >= 0) {
+                        float posX = startX + drawX * CELL_SIZE;
+                        float posY = startY + drawY * CELL_SIZE;
+                        batch.draw(ghostPieceTexture, posX, posY);
+                    }
+                }
+            }
+        }
+    }
+
 
     // Metodos para crear piezas nuevas y colores
+
+    private Texture createGhostTexture(int size) {
+        Pixmap pixmap = new Pixmap(size, size, Pixmap.Format.RGBA8888);
+        pixmap.setColor(1, 1, 1, 0.3f); // Blanco semitransparente
+        pixmap.fill();
+        pixmap.setColor(1, 1, 1, 0.6f);
+        pixmap.drawRectangle(0, 0, size, size);
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        return texture;
+    }
+
+
+    private void updateGhostPiece() {
+        if (currentPiece == null) return;
+
+        // Copia la pieza actual
+        ghostPiece = new TetrisPiece(currentPiece.shape, currentPiece.color);
+        ghostPiece.x = currentPiece.x;
+        ghostPiece.y = currentPiece.y;
+
+        // Simula la caída
+        while (!checkCollision(ghostPiece)) {
+            ghostPiece.y--;
+        }
+        ghostPiece.y++; // Retrocede un paso al detectar colisión
+    }
 
     private Texture createCellTexture(int size) {
         Pixmap pixmap = new Pixmap(size, size, Pixmap.Format.RGBA8888);
@@ -312,6 +367,7 @@ public class TetrisGame extends ApplicationAdapter {
             currentPiece.x += direction;
 //            Gdx.input.vibrate(10); // Feedback táctil opcional
         }
+        updateGhostPiece();
     }
 
     public void spawnNewPiece() {
