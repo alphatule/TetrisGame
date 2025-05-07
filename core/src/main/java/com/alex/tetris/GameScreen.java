@@ -43,8 +43,13 @@ public class GameScreen implements Screen {
     // Otras variables de texturas
     private Texture cellTexture;
     private Texture[] pieceTextures;
+    // ghost position
     private Texture ghostPieceTexture; // Textura semitransparente
     private TetrisPiece ghostPiece;   // Pieza fantasma
+    // next piece
+    private TetrisPiece nextPiece;
+
+
 
     // Piezas y colores
     private static final Color[] PIECE_COLORS = {
@@ -129,6 +134,7 @@ public class GameScreen implements Screen {
         drawBoard();
         drawGhostPiece();
         drawCurrentPiece();
+        drawNextPiece();
         batch.end();
     }
 
@@ -303,6 +309,28 @@ public class GameScreen implements Screen {
         }
     }
 
+    private void drawNextPiece() {
+        if (nextPiece == null) return;
+
+        float previewX = camera.position.x + viewport.getWorldWidth() / 2f - 100;
+        float previewY = camera.position.y + viewport.getWorldHeight() / 2f - 150;
+        skin.getFont("default-font").draw(batch, "Siguiente:", previewX, previewY + 65);
+
+        int colorIndex = Arrays.asList(PIECE_COLORS).indexOf(nextPiece.color);
+        Texture texture = pieceTextures[colorIndex];
+
+        for (int row = 0; row < nextPiece.shape.length; row++) {
+            for (int col = 0; col < nextPiece.shape[row].length; col++) {
+                if (nextPiece.shape[row][col] != 0) {
+                    float x = previewX + col * (CELL_SIZE / 1.5f);
+                    float y = previewY + (nextPiece.shape.length - 1 - row) * (CELL_SIZE / 1.5f); // Dibuja desde arriba
+
+                    batch.draw(texture, x, y, CELL_SIZE / 1.5f, CELL_SIZE / 1.5f);
+                }
+            }
+        }
+    }
+
     // Metodos para crear piezas nuevas y colores
 
     private Texture createGhostTexture(int size) {
@@ -317,7 +345,7 @@ public class GameScreen implements Screen {
     }
 
     private void createPauseButton() {
-        TextButton pauseBtn = new TextButton("II", skin);
+        TextButton pauseBtn = new TextButton("II", skin, "pause");
         pauseBtn.getLabel().setFontScale(1.5f);
 
         // Posición en esquina superior derecha
@@ -394,9 +422,20 @@ public class GameScreen implements Screen {
         updateGhostPiece();
     }
 
-    public void spawnNewPiece() {
+    private TetrisPiece generateRandomPiece() {
         int shapeIndex = MathUtils.random(0, SHAPES.length - 1);
-        currentPiece = new TetrisPiece(SHAPES[shapeIndex], PIECE_COLORS[shapeIndex]);
+        return new TetrisPiece(SHAPES[shapeIndex], PIECE_COLORS[shapeIndex]);
+    }
+
+    public void spawnNewPiece() {
+        if (nextPiece == null) {
+            // Si es la primera vez, inicializa ambas
+            nextPiece = generateRandomPiece();
+        }
+
+        currentPiece = nextPiece;
+        nextPiece = generateRandomPiece();
+        updateGhostPiece();
     }
 
     private boolean checkCollision(TetrisPiece piece) {
@@ -457,7 +496,7 @@ public class GameScreen implements Screen {
             // Game over si la nueva pieza colisiona inmediatamente
             if (checkCollision(currentPiece)) {
                 Gdx.app.log("Game", "Game Over!");
-                // resetGame();
+                game.setScreen(new MainMenuScreen(game));
             }
         }
     }
@@ -522,18 +561,15 @@ public class GameScreen implements Screen {
     private Skin createBasicSkin() {
         Skin skin = new Skin();
 
-        // 1. Crea una textura blanca básica
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         skin.add("white", new Texture(pixmap));
         pixmap.dispose();
 
-        // 2. Usa la fuente por defecto
         BitmapFont font = new BitmapFont();
         skin.add("default-font", font);
 
-        // 3. Estilo para botones
         TextButton.TextButtonStyle buttonStyle = new TextButton.TextButtonStyle();
         buttonStyle.font = font;
         buttonStyle.up = skin.newDrawable("white", new Color(0.25f, 0.25f, 0.25f, 0.8f));
@@ -541,7 +577,13 @@ public class GameScreen implements Screen {
         buttonStyle.over = skin.newDrawable("white", new Color(0.35f, 0.35f, 0.35f, 0.8f));
         skin.add("default", buttonStyle);
 
-        // 4. Estilo para labels
+        TextButton.TextButtonStyle pauseButtonStyle = new TextButton.TextButtonStyle();
+        pauseButtonStyle.font = font;
+        pauseButtonStyle.up = null;
+        pauseButtonStyle.down = null;
+        pauseButtonStyle.over = null;
+        skin.add("pause", pauseButtonStyle);
+
         Label.LabelStyle labelStyle = new Label.LabelStyle();
         labelStyle.font = font;
         labelStyle.fontColor = Color.WHITE;
@@ -651,6 +693,7 @@ public class GameScreen implements Screen {
 
         stage = new Stage(new FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT));
         createPauseButton();
+        Gdx.input.setInputProcessor(stage);
 
         createPauseMenu();
     }
