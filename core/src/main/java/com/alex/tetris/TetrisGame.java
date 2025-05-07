@@ -2,19 +2,15 @@ package com.alex.tetris;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.utils.ScreenUtils;
-import com.badlogic.gdx.utils.TimeUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
@@ -33,6 +29,8 @@ public class TetrisGame extends ApplicationAdapter {
     public static final int BOARD_COLUMNS = 10;
     public static final int BOARD_ROWS = 20;
     public static final int CELL_SIZE = 35; // Tamaño de cada celda en píxeles
+
+    private static final float DEFAULT_DROP_INTERVAL = 0.3f;
     // Otras variables de texturas
     private Texture cellTexture;
     private Texture[] pieceTextures;
@@ -64,18 +62,25 @@ public class TetrisGame extends ApplicationAdapter {
     private TetrisPiece currentPiece;
     private int[][] board = new int[BOARD_ROWS][BOARD_COLUMNS];
     private float dropTimer = 0;
-    private final float dropInterval = 0.3f;
+    private float dropInterval = DEFAULT_DROP_INTERVAL;
 
     // Control táctil
     private final Vector3 initialTouchPos = new Vector3();
     private float touchTime = 0;
+    private boolean rotationPerformed = false;
+    // Desliz
     private final float MAX_TAP_DISTANCE = 15f;
     private final float TAP_MAX_DURATION = 0.3f;
+    // Desliz horizontal
     private final float MIN_SWIPE_DISTANCE = 40f;
+    // Desliz vertical
+    private boolean fastDropActive = false;
+    private final float MIN_SWIPE_VERTICAL_DISTANCE = 60f; // Píxeles para activar caída rápida
+    private final float FAST_DROP_SPEED = 0.02f; // Intervalo de caída rápida (más pequeño = más rápido)
 
-    private boolean rotationPerformed = false;
-    private long lastRotationTime = 0;
-    private final long ROTATION_COOLDOWN_MS = 250; // 250ms de cooldown
+    // Sonidos
+    private Sound placeSound;
+    private Sound clearLineSound;
 
     @Override
     public void create () {
@@ -86,10 +91,16 @@ public class TetrisGame extends ApplicationAdapter {
         camera.position.set(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, 0);
         camera.update();
 
-        initTextures();
         board = new int[BOARD_ROWS][BOARD_COLUMNS]; // Inicializar tablero
+        initTextures();
+        initSounds();
 
         spawnNewPiece();
+    }
+
+    private void initSounds() {
+        placeSound = Gdx.audio.newSound(Gdx.files.internal("place.mp3"));
+        clearLineSound = Gdx.audio.newSound(Gdx.files.internal("clear.mp3"));
     }
 
     private void initTextures() {
@@ -143,6 +154,8 @@ public class TetrisGame extends ApplicationAdapter {
     @Override
     public void dispose () {
         batch.dispose();
+        placeSound.dispose();
+        clearLineSound.dispose();
     }
 
     // Metodos de interacciones
@@ -161,11 +174,15 @@ public class TetrisGame extends ApplicationAdapter {
             camera.unproject(currentPos);
 
             float deltaX = currentPos.x - initialTouchPos.x;
+            float deltaY = currentPos.y - initialTouchPos.y;
 
             // Detectar deslizamiento (prioridad sobre rotación)
             if (Math.abs(deltaX) > MIN_SWIPE_DISTANCE) {
                 movePiece((int)Math.signum(deltaX));
                 initialTouchPos.set(currentPos);
+                rotationPerformed = true;
+            } else if (deltaY < -MIN_SWIPE_VERTICAL_DISTANCE) { // deltaY negativo = hacia abajo
+                activateFastDrop();
                 rotationPerformed = true;
             }
         }
@@ -187,6 +204,16 @@ public class TetrisGame extends ApplicationAdapter {
     }
 
     // Metodos para dibujar piezas en el tablero
+
+    private void activateFastDrop() {
+        fastDropActive = true;
+        dropInterval = FAST_DROP_SPEED; // Cambia la velocidad de caída
+    }
+
+    private void deactivateFastDrop() {
+        fastDropActive = false;
+        dropInterval = DEFAULT_DROP_INTERVAL; // Vuelve a la velocidad normal
+    }
 
     private void rotatePiece() {
         Gdx.app.log("DEBUG", "ROTAMOS");
@@ -295,6 +322,11 @@ public class TetrisGame extends ApplicationAdapter {
                 }
             }
         }
+        if (fastDropActive) {
+            batch.setColor(1, 0.5f, 0.5f, 0.7f); // Tono rojizo durante caída rápida
+            // Dibuja la pieza fantasma
+            batch.setColor(Color.WHITE); // Restablece el color
+        }
     }
 
 
@@ -365,7 +397,6 @@ public class TetrisGame extends ApplicationAdapter {
 
         if (!checkCollision(testPiece)) {
             currentPiece.x += direction;
-//            Gdx.input.vibrate(10); // Feedback táctil opcional
         }
         updateGhostPiece();
     }
@@ -426,6 +457,7 @@ public class TetrisGame extends ApplicationAdapter {
 
             if (shouldPlace) {
                 placePiece();
+                deactivateFastDrop();
             }
             spawnNewPiece();
 
@@ -452,6 +484,7 @@ public class TetrisGame extends ApplicationAdapter {
                 }
             }
         }
+        placeSound.play(0.5f);
         checkCompleteLines();
 //        debugBoard();
     }
@@ -473,11 +506,8 @@ public class TetrisGame extends ApplicationAdapter {
                 }
                 // Limpiar la línea superior
                 Arrays.fill(board[BOARD_ROWS - 1], 0);
-
-                // Volver a verificar la misma fila (ahora con los bloques caídos)
                 row--;
-
-                // Aquí podrías aumentar la puntuación
+                clearLineSound.play(0.8f);
             }
         }
     }
