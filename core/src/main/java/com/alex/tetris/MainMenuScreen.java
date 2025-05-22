@@ -42,12 +42,12 @@ public class MainMenuScreen implements Screen {
         newGameBtn.setSize(200, 60);
 
         // Botón "Ajustes"
-        TextButton settingsBtn = new TextButton("Ajustes", skin);
-        settingsBtn.setPosition(
-            TetrisGame.VIRTUAL_WIDTH/2 - 100,
-            TetrisGame.VIRTUAL_HEIGHT/2 - 40
-        );
-        settingsBtn.setSize(200, 60);
+//        TextButton settingsBtn = new TextButton("Ajustes", skin);
+//        settingsBtn.setPosition(
+//            TetrisGame.VIRTUAL_WIDTH/2 - 100,
+//            TetrisGame.VIRTUAL_HEIGHT/2 - 40
+//        );
+//        settingsBtn.setSize(200, 60);
 
         // Listeners
         newGameBtn.addListener(new ClickListener() {
@@ -57,15 +57,15 @@ public class MainMenuScreen implements Screen {
             }
         });
 
-        settingsBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-//                game.setScreen(new SettingsScreen(game));
-            }
-        });
+//        settingsBtn.addListener(new ClickListener() {
+//            @Override
+//            public void clicked(InputEvent event, float x, float y) {
+////                game.setScreen(new SettingsScreen(game));
+//            }
+//        });
 
         stage.addActor(newGameBtn);
-        stage.addActor(settingsBtn);
+//        stage.addActor(settingsBtn);
     }
 
     // Skin básica blanca
