@@ -210,7 +210,7 @@ public class GameScreen implements Screen {
         Gdx.app.log("DEBUG", "ROTAMOS");
         if (currentPiece == null) return;
 
-        // 1. Rotar la matriz de la pieza
+        //  Rotar la matriz de la pieza
         int[][] rotated = new int[currentPiece.shape[0].length][currentPiece.shape.length];
         for (int i = 0; i < currentPiece.shape.length; i++) {
             for (int j = 0; j < currentPiece.shape[0].length; j++) {
@@ -218,7 +218,7 @@ public class GameScreen implements Screen {
             }
         }
 
-        // 2. Probar rotación en 5 posiciones diferentes (wall kicks)
+        // Probar rotación en 5 posiciones diferentes (wall kicks)
         int[][] testPositions = {
             {currentPiece.x, currentPiece.y},     // Posición original
             {currentPiece.x + 1, currentPiece.y}, // Derecha
